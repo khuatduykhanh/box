@@ -2,47 +2,51 @@
 pragma solidity ^0.8.0;
 
 import "hardhat/console.sol";
-import "./ownable.sol";
+import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+import "@openzeppelin/contracts/utils/Counters.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 
-contract Box is Ownable {
+ contract Box is ERC721, Ownable {
+    using Counters for Counters.Counter;
+    Counters.Counter private _tokenIds;
+    mapping (address => uint[] ) boxOwner;
+    event mintBox(uint _sum123,uint _timeBegin, uint _timeEnd, uint _price,string _sellingUint, uint _limitBox );
     
-    uint idModulus = 10 ** 56;
-    uint limitBox;
-    uint random = 0 ;
-    struct box {
-        uint id;
-        string name;
-        uint timesale;
-        uint timeendsale;
+    constructor() ERC721("Box", "BOX") {}
+    uint private _timeBegin; 
+    uint private _timeEnd;
+    uint private _price;
+    string private _sellingUint;
+    uint private _limitBox;
+    function _mintNFT(address recipient, uint amountToMint )
+        private 
+        
+    {
+        for(uint i = 0; i < amountToMint; i++){
+        _tokenIds.increment();
 
+        uint256 newItemId = _tokenIds.current();
+        boxOwner[recipient].push(newItemId);
+        _mint(recipient, newItemId);
+    
     }
-    mapping(address => uint )  boxToCount;
-    mapping(uint => address) public boxToOwner;
-    mapping (address=> uint[]) allBoxToOwner;
-    mapping (uint => uint) idToIndexArry;
-    event newbox(uint _id,string _name);
-    box[] public BOX;
-
-    function mint (string memory _name,string memory _boxname) public {
-       uint id = uint(keccak256(abi.encodePacked(block.timestamp,_name,random))) % idModulus;
-       BOX.push(box(id,_boxname,0,0));
-       idToIndexArry[id] = random;
-       boxToCount[msg.sender]++;
-       boxToOwner[id] = msg.sender;
-       allBoxToOwner[msg.sender].push(id);
-       random++;
-       emit newbox(id,_boxname);
+        
     }
 
-    function quantityLimitBox(uint _limitBox) external onlyOwner {
-        limitBox = _limitBox;
+    function setUp ( uint timeEnd, uint price,string memory sellingUint,uint limitBox) external onlyOwner {
+        _timeBegin = block.timestamp;
+        _timeEnd = timeEnd * 86400 + block.timestamp;
+        _price = price;
+        _sellingUint = sellingUint;
+        _limitBox = limitBox;
+        
     }
-
-
-    function setUpTime(uint _daySale,uint _hourSale,uint _dayEndSale,uint _hourEndSale ) external {
-        for (uint16 i = 0; i < allBoxToOwner[msg.sender].length; i++) {
-            BOX[idToIndexArry[allBoxToOwner[msg.sender][i]]].timesale = block.timestamp + _daySale * 1 days + _hourSale * 1 hours;
-            BOX[idToIndexArry[allBoxToOwner[msg.sender][i]]].timeendsale = block.timestamp + _dayEndSale * 1 days + _hourEndSale * 1 hours;
+    function saleBox(uint sum,address recipient) external onlyOwner {
+        require(sum <= _limitBox);
+        require(_timeBegin <= block.timestamp &&  block.timestamp <= _timeEnd);
+        _mintNFT(recipient,sum );
+        if(sum == _limitBox) {
+            emit mintBox(sum,_timeBegin,_timeEnd, _price,_sellingUint,_limitBox);
         }
 
     }
