@@ -5,6 +5,7 @@ import "hardhat/console.sol";
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
  contract Box is ERC721, Ownable {
     using Counters for Counters.Counter;    
@@ -18,33 +19,34 @@ import "@openzeppelin/contracts/access/Ownable.sol";
         uint256 startTime;
         uint256 endTime;
         uint256 maxBuy;
+        uint256 startID;
     }
    struct BoxList {
         uint256 quantity;
         uint256 bought;
-        string nameBox;
         string uriImage;
     }
-    mapping (uint => BoxList ) boxListByID;
-    mapping (uint => mapping(uint => BoxList)) boxesByEvent;
+    address public fundWallet;
+    mapping (string => BoxList ) boxListByID;
+    mapping (uint => mapping(string => BoxList)) boxesByEvent;
     mapping(uint256 => EventInfo) public eventByID;
     mapping (uint => uint ) boxByEvent;
     mapping (uint => mapping(address => uint)) userBought;
-    event EventCreated(uint _totalSupply, string[] nameBoxSale, uint[]numberBoxSale, uint _price, address _currency,uint _startTime,uint _endTime,uint _maxBuy);
+    event EventCreated(uint _totalSupply, string[] nameBoxSale, uint[]numberBoxSale, uint _price, address _currency,uint _startTime,uint _endTime,uint _maxBuy,uint startID);
     event BoxCreated(uint _boxID,address addressUser,uint _eventID,string _uriImage, string _name,uint _boxPrice, address _token);
-    event createBox(uint _boxID, string _nameBox,uint _quantity,string _uriImage);
+    event createBox( string _nameBox,uint _quantity,string _uriImage);
     constructor() ERC721("Box", "BOX") {}
 
-    function createBoxList (uint _boxID,string memory _name,uint _quantity,string memory _uriImage) external onlyOwner {
+    function createBoxList (string memory _name,uint _quantity,string memory _uriImage) external onlyOwner {
         require(_quantity > 0);
-        boxListByID[_boxID] = BoxList(_quantity,0,_name,_uriImage);
-        emit createBox(_boxID,_name,_quantity,_uriImage);
+        boxListByID[_name] = BoxList(_quantity,0,_uriImage);
+        emit createBox(_name,_quantity,_uriImage);
     } 
-    function addQuantityBox(uint _boxID,uint _amount ) external onlyOwner {
+    function addQuantityBox(string memory _nameBox,uint _amount ) external onlyOwner {
         require(_amount > 0 );
-        boxListByID[_boxID].quantity += _amount;
+        boxListByID[_nameBox].quantity += _amount;
     }
-    function checkAmount (uint _sum, uint[] _amountBoxID ) private returns (bool) {
+    function checkAmount(uint _sum, uint[] memory _amountBoxID ) pure private returns(bool) {
         uint sum = 0;
         for(uint i=0 ; i< _amountBoxID.length; i++){
             sum = sum + _amountBoxID[i];
@@ -54,17 +56,10 @@ import "@openzeppelin/contracts/access/Ownable.sol";
         }
         return false;
         }
-    function nameBox (uint[] boxID ) private returns (string[]) {
-        string[] memory arrayName;
-        for(uint i =0; i< boxID.length; i++){
-            arrayName[i] = boxListByID[boxID[i]].nameBox;
-        }
-        return arrayName;
-    }
    function createEvent(
         uint256 _eventID,
-        uint[] _boxID,
-        uint[] _amountBoxID,
+        string[] memory _nameBox,
+        uint[] memory _amountBoxID,
         uint256 _totalSupply,
         uint256 _price,
         address _currency,
@@ -73,19 +68,19 @@ import "@openzeppelin/contracts/access/Ownable.sol";
         uint256 _maxBuy,
         uint256 _startID
     ) external onlyOwner {
-        require(_boxID.length == _amountBoxID );
+        require(_nameBox.length == _amountBoxID.length );
         require (checkAmount(_totalSupply,_amountBoxID));
         require(_totalSupply > 0, "Invalid Supply");
         require(_startTime < _endTime, "Invalid time");
         require(_maxBuy > 0, "Need set max buy");
-        require(_boxID.length > 0 );
-            for(uint i=0;i <_boxID.length; i++){
-                boxesByEvent[_eventID][_boxID[i]] = boxListByID[_boxID[i]];
+        require(_nameBox.length > 0 );
+            for(uint i=0;i <_nameBox.length; i++){
+                boxesByEvent[_eventID][_nameBox[i]] = boxListByID[_nameBox[i]];
             }
-        eventByID[_eventID] = EventInfo(_totalSupply, nameBox(_boxID), _amountBoxID, 0, _price, _currency, _startTime, _endTime, _maxBuy, _startID);
+        eventByID[_eventID] = EventInfo(_totalSupply, _nameBox, _amountBoxID, 0, _price, _currency, _startTime, _endTime, _maxBuy, _startID);
         emit EventCreated(
             _totalSupply,
-            nameBox(_boxID),
+            _nameBox,
             _amountBoxID,
             _price,
             _currency,
@@ -104,14 +99,14 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 
         IERC20(_token).transferFrom(msg.sender, fundWallet, _amount);
     }
-    function buyBox(uint256 _eventID, uint256 _amount, uint256 _indexBoxList, address _token) public payable {
+    function buyBox(uint256 _eventID, uint256 _amount,string memory _nameBox, address _token) public payable {
         EventInfo storage eventInfo = eventByID[_eventID];
 
         require(_amount > 0 && _amount + userBought[_eventID][msg.sender] <= eventInfo.maxBuy, "Rate limit exceeded");
         require(block.timestamp >= eventInfo.startTime, "Sale has not started");
         require(block.timestamp <= eventInfo.endTime, "Sale has ended");
         require(_token == eventInfo.currency, "Invalid token");
-        BoxList storage boxes = boxesByEvent[_eventID][_indexBoxList];
+        BoxList storage boxes = boxesByEvent[_eventID][_nameBox];
 
         require(boxes.quantity - boxes.bought >= _amount, "sold out");
         
@@ -127,7 +122,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
             boxByEvent[boxID] = _eventID;
             userBought[_eventID][msg.sender] += 1;
             eventInfo.boxCount += 1;
-            emit BoxCreated(boxID, msg.sender, _eventID, boxes.uriImage, boxes.nameBox, eventInfo.boxPrice, eventInfo.currency);
+            emit BoxCreated(boxID, msg.sender, _eventID, boxes.uriImage, _nameBox, eventInfo.boxPrice, eventInfo.currency);
         }
 
         boxes.bought += _amount;
