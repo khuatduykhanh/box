@@ -37,10 +37,13 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
     event createBox( string _nameBox,uint _quantity,string _uriImage);
     constructor() ERC721("Box", "BOX") {}
 
-    function createBoxList (string memory _name,uint _quantity,string memory _uriImage) external onlyOwner {
-        require(_quantity > 0);
-        boxListByID[_name] = BoxList(_quantity,0,_uriImage);
-        emit createBox(_name,_quantity,_uriImage);
+    function createBoxList (string[] memory _name,uint[] memory _quantity,string[] memory _uriImage) external onlyOwner {
+        require(_name.length == _quantity.length && _name.length == _uriImage.length);
+        for(uint i = 0; i < _name.length; i++){
+        boxListByID[_name[i]] = BoxList(_quantity[i],0,_uriImage[i]);
+        emit createBox(_name[i],_quantity[i],_uriImage[i]);
+        }
+        
     } 
     function addQuantityBox(string memory _nameBox,uint _amount ) external onlyOwner {
         require(_amount > 0 );
