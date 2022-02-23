@@ -7,9 +7,10 @@ import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
+interface OpenBoxInterface {  
+    function mintNFT(uint _boxID) external returns(uint NftID);
+}
  contract Box is ERC721, Ownable {
-    using Counters for Counters.Counter; 
-    Counters.Counter private _itemID;   
     struct EventInfo {
         uint256 totalSupply;
         string[] nameBoxSale;
@@ -40,6 +41,8 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
         string name;
     }
     address public fundWallet;
+    address public addressOpenBox;
+    mapping (address => uint ) boxOpened;
     mapping (uint => gun) gunsByID;
     mapping (uint => armor) armorByID;
     mapping (uint => knife ) knifeByID;
@@ -148,35 +151,42 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
         boxes.bought += _amount;
     }
     uint randNonce = 0;
-    function ranDom () internal returns(uint) {
+    function ranDom (uint _modulus) internal returns(uint) {
         randNonce++;
-        return uint(keccak256(abi.encodePacked(block.timestamp,msg.sender,randNonce))) % 100;
+        return uint(keccak256(abi.encodePacked(block.timestamp,msg.sender,randNonce))) % _modulus;
+    }
+
+    OpenBoxInterface open;
+
+    function setOpenBoxContractAddress (address _ckAddress) external onlyOwner {
+        open = OpenBoxInterface(_ckAddress);
     }
 
     function openBox (uint boxID ) external {
         require(ownerOf(boxID) == msg.sender );
-        uint random = ranDom ();
+        uint random = ranDom (100);
         if(random > 90 ){
             console.log ("there's nothing in the box");
         }
-        _itemID.increment();
-        uint256 newItemId = _itemID.current();
         
         if(random <= 30 ){
-            uint gunStructure = uint(keccak256(abi.encodePacked(block.timestamp,msg.sender,newItemId))) % (10 ** 49);
-            gunsByID[newItemId] = gun(gunStructure,"gun");
-            itemOwner[newItemId] = msg.sender;
-
+            (uint newID) = open.mintNFT(boxID);
+            uint gunStructure = uint(keccak256(abi.encodePacked(block.timestamp,msg.sender,boxID))) % (10 ** 49);
+            gunsByID[newID] = gun(gunStructure,"gun");
+            boxOpened[msg.sender] += 1;
         }
         if(random > 30 && random <=60 ){
-            uint armorStructure = uint(keccak256(abi.encodePacked(block.timestamp,msg.sender,newItemId))) % (10 ** 55);
-            armorByID[newItemId] = armor(armorStructure,"armor");
-            itemOwner[newItemId] = msg.sender;
+            (uint newID) = open.mintNFT(boxID);
+            uint armorStructure = uint(keccak256(abi.encodePacked(block.timestamp,msg.sender,boxID))) % (10 ** 55);
+            armorByID[newID] = armor(armorStructure,"armor");
+            boxOpened[msg.sender] += 1;
         }
         if(random > 60 && random <=90 ){
-            uint knifeStructure = uint(keccak256(abi.encodePacked(block.timestamp,msg.sender,newItemId))) % (10 ** 55);
-            knifeByID[newItemId] = knife(knifeStructure,"knife");
-            itemOwner[newItemId] = msg.sender;
+            (uint newID) = open.mintNFT(boxID);
+            uint knifeStructure = uint(keccak256(abi.encodePacked(block.timestamp,msg.sender,boxID))) % (10 ** 55);
+            knifeByID[newID] = knife(knifeStructure,"knife");
+            boxOpened[msg.sender] += 1;
+
         }
        _burn(boxID);
     }
