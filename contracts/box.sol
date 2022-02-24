@@ -8,7 +8,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 interface OpenBoxInterface {  
-    function mintNFT(uint _boxID) external returns(uint NftID);
+    function mintNFT(uint _boxID) external ;
 }
  contract Box is ERC721, Ownable {
     struct EventInfo {
@@ -42,6 +42,7 @@ interface OpenBoxInterface {
     }
     address public fundWallet;
     address public addressOpenBox;
+    mapping (uint => uint) private eventRandom;
     mapping (address => uint ) boxOpened;
     mapping (uint => gun) gunsByID;
     mapping (uint => armor) armorByID;
@@ -56,6 +57,12 @@ interface OpenBoxInterface {
     event BoxCreated(uint _boxID,address addressUser,uint _eventID,string _uriImage, string _name,uint _boxPrice, address _token);
     event createBox( string _nameBox,uint _quantity,string _uriImage);
     constructor() ERC721("Box", "BOX") {}
+
+    uint randNonce = 0;
+    function ranDom (uint _modulus) internal returns(uint) {
+        randNonce++;
+        return uint(keccak256(abi.encodePacked(block.timestamp,msg.sender,randNonce))) % _modulus;
+    }
 
     function createBoxList (string[] memory _name,uint[] memory _quantity,string[] memory _uriImage) external onlyOwner {
         require(_name.length == _quantity.length && _name.length == _uriImage.length);
@@ -100,6 +107,7 @@ interface OpenBoxInterface {
             for(uint i=0;i <_nameBox.length; i++){
                 boxesByEvent[_eventID][_nameBox[i]] = boxListByID[_nameBox[i]];
             }
+        eventRandom[_eventID] = ranDom(1000);
         eventByID[_eventID] = EventInfo(_totalSupply, _nameBox, _amountBoxID, 0, _price, _currency, _startTime, _endTime, _maxBuy, _startID);
         emit EventCreated(
             _totalSupply,
@@ -150,11 +158,6 @@ interface OpenBoxInterface {
 
         boxes.bought += _amount;
     }
-    uint randNonce = 0;
-    function ranDom (uint _modulus) internal returns(uint) {
-        randNonce++;
-        return uint(keccak256(abi.encodePacked(block.timestamp,msg.sender,randNonce))) % _modulus;
-    }
 
     OpenBoxInterface open;
 
@@ -162,33 +165,37 @@ interface OpenBoxInterface {
         open = OpenBoxInterface(_ckAddress);
     }
 
-    function openBox (uint boxID ) external {
-        require(ownerOf(boxID) == msg.sender );
+    function openBox (uint[] memory boxID ) external {
+        for(uint i =0; i < boxID.length;i++){
+        require(ownerOf(boxID[i]) == msg.sender );
+        EventInfo memory eventInfo =  eventByID[boxByEvent[boxID[i]]];
         uint random = ranDom (100);
+        uint rand = eventRandom[boxByEvent[boxID[i]]];
+        uint256 nftId = (boxID[i] + rand) % eventInfo.totalSupply + eventInfo.startID;
         if(random > 90 ){
             console.log ("there's nothing in the box");
         }
         
         if(random <= 30 ){
-            (uint newID) = open.mintNFT(boxID);
-            uint gunStructure = uint(keccak256(abi.encodePacked(block.timestamp,msg.sender,boxID))) % (10 ** 49);
-            gunsByID[newID] = gun(gunStructure,"gun");
+            open.mintNFT(nftId);
+            uint gunStructure = uint(keccak256(abi.encodePacked(block.timestamp,msg.sender,boxID[i]))) % (10 ** 49);
+            gunsByID[nftId] = gun(gunStructure,"gun");
             boxOpened[msg.sender] += 1;
         }
         if(random > 30 && random <=60 ){
-            (uint newID) = open.mintNFT(boxID);
-            uint armorStructure = uint(keccak256(abi.encodePacked(block.timestamp,msg.sender,boxID))) % (10 ** 55);
-            armorByID[newID] = armor(armorStructure,"armor");
+            open.mintNFT(nftId);
+            uint armorStructure = uint(keccak256(abi.encodePacked(block.timestamp,msg.sender,boxID[i]))) % (10 ** 55);
+            armorByID[nftId] = armor(armorStructure,"armor");
             boxOpened[msg.sender] += 1;
         }
         if(random > 60 && random <=90 ){
-            (uint newID) = open.mintNFT(boxID);
-            uint knifeStructure = uint(keccak256(abi.encodePacked(block.timestamp,msg.sender,boxID))) % (10 ** 55);
-            knifeByID[newID] = knife(knifeStructure,"knife");
+            open.mintNFT(nftId);
+            uint knifeStructure = uint(keccak256(abi.encodePacked(block.timestamp,msg.sender,boxID[i]))) % (10 ** 55);
+            knifeByID[nftId] = knife(knifeStructure,"knife");
             boxOpened[msg.sender] += 1;
 
         }
-       _burn(boxID);
+       _burn(boxID[i]);
     }
-
+    }
 }

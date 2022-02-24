@@ -1,18 +1,29 @@
 //SPDX-License-Identifier: Unlicense
 pragma solidity ^0.8.0;
 
-import "hardhat/console.sol";
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
-import "@openzeppelin/contracts/utils/Counters.sol";
-contract OpenBox is ERC721 {
-    using Counters for Counters.Counter; 
-    Counters.Counter private _itemID;  
-    constructor() ERC721("Battle", "GAN") {}
-    function mintNFT(uint boxID) external returns(uint) {
-        _itemID.increment();
-        uint256 newItemId = _itemID.current();
-       _safeMint(msg.sender, newItemId);
-       return newItemId;
+import "@openzeppelin/contracts/access/AccessControl.sol";
+
+contract MyToken is ERC721, AccessControl {
+    bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
+
+    constructor() ERC721("MyToken", "MTK") {
+        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
+        _grantRole(MINTER_ROLE, msg.sender);
     }
-    
+
+    function mintNFT (uint256 nftID) public onlyRole(MINTER_ROLE) {
+        _safeMint(msg.sender, nftID);
+    }
+
+    // The following functions are overrides required by Solidity.
+
+    function supportsInterface(bytes4 interfaceId)
+        public
+        view
+        override(ERC721, AccessControl)
+        returns (bool)
+    {
+        return super.supportsInterface(interfaceId);
+    }
 }
