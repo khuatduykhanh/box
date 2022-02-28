@@ -1,5 +1,5 @@
 //SPDX-License-Identifier: Unlicense
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.7;
 
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
@@ -8,12 +8,12 @@ contract MyToken is ERC721, AccessControl {
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
 
     constructor(address addressBox ) ERC721("Battle", "GAN") {
-        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _grantRole(MINTER_ROLE, addressBox);
     }
 
-    function mintNFT (uint256 nftID) public onlyRole(MINTER_ROLE) {
-        _safeMint(msg.sender, nftID);
+    function mintNFT (address to, uint256 nftID) public  {
+        require(hasRole(MINTER_ROLE, msg.sender));
+        _safeMint(to, nftID);
     }
 
     // The following functions are overrides required by Solidity.

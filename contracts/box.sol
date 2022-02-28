@@ -1,16 +1,17 @@
 //SPDX-License-Identifier: Unlicense
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.7;
 
 import "hardhat/console.sol";
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "./random.sol";
 
 interface OpenBoxInterface {  
-    function mintNFT(uint _boxID) external ;
+   function mintNFT (address _to, uint256 _nftID) external ;
 }
- contract Box is ERC721, Ownable {
+ contract Box is ERC721, Ownable, VRFv2Consumer {
     struct EventInfo {
         uint256 totalSupply;
         string[] nameBoxSale;
@@ -28,40 +29,27 @@ interface OpenBoxInterface {
         uint256 bought;
         string uriImage;
     }
-    struct gun {
-        uint gunStructure;
-        string name;
-    }
-    struct armor {
-        uint armorStructure;
-        string name;
-    }
-    struct knife {
-        uint knifeStructure;
-        string name;
-    }
+   
     address public fundWallet;
     address public addressOpenBox;
     mapping (uint => uint) private eventRandom;
     mapping (address => uint ) boxOpened;
-    mapping (uint => gun) gunsByID;
-    mapping (uint => armor) armorByID;
-    mapping (uint => knife ) knifeByID;
     mapping (string => BoxList ) boxListByID;
     mapping (uint => mapping(string => BoxList)) boxesByEvent;
     mapping(uint256 => EventInfo) public eventByID;
     mapping (uint => uint ) boxByEvent;
     mapping (uint => mapping(address => uint)) userBought;
     mapping (uint => address ) itemOwner;
+    mapping (address => uint[] ) allBoxToAddress;
     event EventCreated(uint _totalSupply, string[] nameBoxSale, uint[]numberBoxSale, uint _price, address _currency,uint _startTime,uint _endTime,uint _maxBuy,uint startID);
     event BoxCreated(uint _boxID,address addressUser,uint _eventID,string _uriImage, string _name,uint _boxPrice, address _token);
     event createBox( string _nameBox,uint _quantity,string _uriImage);
-    constructor() ERC721("Box", "BOX") {}
+    constructor() ERC721("Box", "BOX") VRFv2Consumer(658) {}
 
-    uint randNonce = 0;
-    function ranDom (uint _modulus) internal returns(uint) {
-        randNonce++;
-        return uint(keccak256(abi.encodePacked(block.timestamp,msg.sender,randNonce))) % _modulus;
+    
+    function _requestRanDomNumber() private onlyOwner returns(uint) {
+        requestRandomWords();
+        return s_randomWords[1];
     }
 
     function createBoxList (string[] memory _name,uint[] memory _quantity,string[] memory _uriImage) external onlyOwner {
@@ -107,7 +95,7 @@ interface OpenBoxInterface {
             for(uint i=0;i <_nameBox.length; i++){
                 boxesByEvent[_eventID][_nameBox[i]] = boxListByID[_nameBox[i]];
             }
-        eventRandom[_eventID] = ranDom(1000);
+        eventRandom[_eventID] = _requestRanDomNumber();
         eventByID[_eventID] = EventInfo(_totalSupply, _nameBox, _amountBoxID, 0, _price, _currency, _startTime, _endTime, _maxBuy, _startID);
         emit EventCreated(
             _totalSupply,
@@ -150,6 +138,7 @@ interface OpenBoxInterface {
         for (uint i = 0; i < _amount; i++) {
             uint256 boxID = eventInfo.boxCount + eventInfo.startID + 1;
             _safeMint(msg.sender, boxID);
+            allBoxToAddress[msg.sender].push(boxID);
             boxByEvent[boxID] = _eventID;
             userBought[_eventID][msg.sender] += 1;
             eventInfo.boxCount += 1;
@@ -169,33 +158,23 @@ interface OpenBoxInterface {
         for(uint i =0; i < boxID.length;i++){
         require(ownerOf(boxID[i]) == msg.sender );
         EventInfo memory eventInfo =  eventByID[boxByEvent[boxID[i]]];
-        uint random = ranDom (100);
         uint rand = eventRandom[boxByEvent[boxID[i]]];
         uint256 nftId = (boxID[i] + rand) % eventInfo.totalSupply + eventInfo.startID;
-        if(random > 90 ){
-            console.log ("there's nothing in the box");
-        }
-        
-        if(random <= 30 ){
-            open.mintNFT(nftId);
-            uint gunStructure = uint(keccak256(abi.encodePacked(block.timestamp,msg.sender,boxID[i]))) % (10 ** 49);
-            gunsByID[nftId] = gun(gunStructure,"gun");
-            boxOpened[msg.sender] += 1;
-        }
-        if(random > 30 && random <=60 ){
-            open.mintNFT(nftId);
-            uint armorStructure = uint(keccak256(abi.encodePacked(block.timestamp,msg.sender,boxID[i]))) % (10 ** 55);
-            armorByID[nftId] = armor(armorStructure,"armor");
-            boxOpened[msg.sender] += 1;
-        }
-        if(random > 60 && random <=90 ){
-            open.mintNFT(nftId);
-            uint knifeStructure = uint(keccak256(abi.encodePacked(block.timestamp,msg.sender,boxID[i]))) % (10 ** 55);
-            knifeByID[nftId] = knife(knifeStructure,"knife");
-            boxOpened[msg.sender] += 1;
-
-        }
+        open.mintNFT(msg.sender,nftId);
+        boxOpened[msg.sender] += 1;
        _burn(boxID[i]);
     }
+    }
+
+    function openAllBox() external {
+        for(uint i = 0; i < allBoxToAddress[msg.sender].length;i++){
+            require(ownerOf(allBoxToAddress[msg.sender][i]) == msg.sender );
+            EventInfo memory eventInfo =  eventByID[boxByEvent[allBoxToAddress[msg.sender][i]]];
+            uint rand = eventRandom[boxByEvent[allBoxToAddress[msg.sender][i]]];
+            uint256 nftId = (allBoxToAddress[msg.sender][i] + rand) % eventInfo.totalSupply + eventInfo.startID;
+            open.mintNFT(msg.sender, nftId);
+            boxOpened[msg.sender] += 1;
+            _burn(allBoxToAddress[msg.sender][i]);
+        }
     }
 }
