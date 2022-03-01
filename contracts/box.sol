@@ -6,12 +6,16 @@ import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "./random.sol";
 
 interface OpenBoxInterface {  
    function mintNFT (address _to, uint256 _nftID) external ;
 }
- contract Box is ERC721, Ownable, VRFv2Consumer {
+
+interface RanDom {
+    function ranDom() external returns(uint256);
+}
+
+ contract Box is ERC721, Ownable {
     struct EventInfo {
         uint256 totalSupply;
         string[] nameBoxSale;
@@ -44,13 +48,7 @@ interface OpenBoxInterface {
     event EventCreated(uint _totalSupply, string[] nameBoxSale, uint[]numberBoxSale, uint _price, address _currency,uint _startTime,uint _endTime,uint _maxBuy,uint startID);
     event BoxCreated(uint _boxID,address addressUser,uint _eventID,string _uriImage, string _name,uint _boxPrice, address _token);
     event createBox( string _nameBox,uint _quantity,string _uriImage);
-    constructor() ERC721("Box", "BOX") VRFv2Consumer(658) {}
-
-    
-    function _requestRanDomNumber() private onlyOwner returns(uint) {
-        requestRandomWords();
-        return s_randomWords[1];
-    }
+    constructor() ERC721("Box", "BOX") {}
 
     function createBoxList (string[] memory _name,uint[] memory _quantity,string[] memory _uriImage) external onlyOwner {
         require(_name.length == _quantity.length && _name.length == _uriImage.length);
@@ -74,6 +72,12 @@ interface OpenBoxInterface {
         }
         return false;
         }
+    RanDom random;
+
+    function setRanDomContractAddress (address _ckAddress) external onlyOwner {
+        random = RanDom(_ckAddress);
+    }
+
    function createEvent(
         uint256 _eventID,
         string[] memory _nameBox,
@@ -95,7 +99,7 @@ interface OpenBoxInterface {
             for(uint i=0;i <_nameBox.length; i++){
                 boxesByEvent[_eventID][_nameBox[i]] = boxListByID[_nameBox[i]];
             }
-        eventRandom[_eventID] = _requestRanDomNumber();
+        eventRandom[_eventID] = random.ranDom();
         eventByID[_eventID] = EventInfo(_totalSupply, _nameBox, _amountBoxID, 0, _price, _currency, _startTime, _endTime, _maxBuy, _startID);
         emit EventCreated(
             _totalSupply,
