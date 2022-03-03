@@ -6,16 +6,16 @@ import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-
+// import "./ramdom.sol";
 interface OpenBoxInterface {  
    function mintNFT (address _to, uint256 _nftID) external ;
 }
 
-interface RanDom {
-    function ranDom() external returns(uint256);
+interface RanDomVF2 {
+    function ranDomm () external returns(uint256);
 }
 
- contract Box is ERC721, Ownable {
+ contract Box is ERC721, Ownable{
     struct EventInfo {
         uint256 totalSupply;
         string[] nameBoxSale;
@@ -49,6 +49,10 @@ interface RanDom {
     event BoxCreated(uint _boxID,address addressUser,uint _eventID,string _uriImage, string _name,uint _boxPrice, address _token);
     event createBox( string _nameBox,uint _quantity,string _uriImage);
     constructor() ERC721("Box", "BOX") {}
+    // function _requestRanDomNumber() private onlyOwner returns(uint) {
+    //     requestRandomWords();
+    //     return s_randomWords[1];
+    // }
 
     function createBoxList (string[] memory _name,uint[] memory _quantity,string[] memory _uriImage) external onlyOwner {
         require(_name.length == _quantity.length && _name.length == _uriImage.length);
@@ -72,10 +76,10 @@ interface RanDom {
         }
         return false;
         }
-    RanDom random;
+    RanDomVF2 random;
 
     function setRanDomContractAddress (address _ckAddress) external onlyOwner {
-        random = RanDom(_ckAddress);
+        random = RanDomVF2(_ckAddress);
     }
 
    function createEvent(
@@ -99,7 +103,7 @@ interface RanDom {
             for(uint i=0;i <_nameBox.length; i++){
                 boxesByEvent[_eventID][_nameBox[i]] = boxListByID[_nameBox[i]];
             }
-        eventRandom[_eventID] = random.ranDom();
+        eventRandom[_eventID] = random.ranDomm();
         eventByID[_eventID] = EventInfo(_totalSupply, _nameBox, _amountBoxID, 0, _price, _currency, _startTime, _endTime, _maxBuy, _startID);
         emit EventCreated(
             _totalSupply,
