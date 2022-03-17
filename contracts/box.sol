@@ -2,20 +2,18 @@
 pragma solidity ^0.8.7;
 
 import "hardhat/console.sol";
-import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
-import "@openzeppelin/contracts/utils/Counters.sol";
+import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-// import "./ramdom.sol";
+
 interface OpenBoxInterface {  
    function mintNFT (address _to, uint256 _nftID) external ;
 }
-
-interface RanDomVF2 {
-    function ranDomm () external returns(uint256);
+interface RanDomNumber {
+    function getEventRandomNumber(uint256 _eventId) external;
 }
 
- contract Box is ERC721, Ownable{
+contract Box is ERC721Enumerable, Ownable{
     struct EventInfo {
         uint256 totalSupply;
         string[] nameBoxSale;
@@ -27,6 +25,7 @@ interface RanDomVF2 {
         uint256 endTime;
         uint256 maxBuy;
         uint256 startID;
+        uint256 timeOpenBox;
     }
    struct BoxList {
         uint256 quantity;
@@ -35,7 +34,6 @@ interface RanDomVF2 {
     }
    
     address public fundWallet;
-    address public addressOpenBox;
     mapping (uint => uint) private eventRandom;
     mapping (address => uint ) boxOpened;
     mapping (string => BoxList ) boxListByID;
@@ -43,21 +41,22 @@ interface RanDomVF2 {
     mapping(uint256 => EventInfo) public eventByID;
     mapping (uint => uint ) boxByEvent;
     mapping (uint => mapping(address => uint)) userBought;
-    mapping (uint => address ) itemOwner;
-    mapping (address => uint[] ) allBoxToAddress;
     event EventCreated(uint _totalSupply, string[] nameBoxSale, uint[]numberBoxSale, uint _price, address _currency,uint _startTime,uint _endTime,uint _maxBuy,uint startID);
     event BoxCreated(uint _boxID,address addressUser,uint _eventID,string _uriImage, string _name,uint _boxPrice, address _token);
     event createBox( string _nameBox,uint _quantity,string _uriImage);
     constructor() ERC721("Box", "BOX") {}
-    // function _requestRanDomNumber() private onlyOwner returns(uint) {
-    //     requestRandomWords();
-    //     return s_randomWords[1];
-    // }
+    
+    function setRandomNumber(uint eventId, uint ranDom) external {
+        eventRandom[eventId] = ranDom ;
+    }
 
     function createBoxList (string[] memory _name,uint[] memory _quantity,string[] memory _uriImage) external onlyOwner {
         require(_name.length == _quantity.length && _name.length == _uriImage.length);
         for(uint i = 0; i < _name.length; i++){
         boxListByID[_name[i]] = BoxList(_quantity[i],0,_uriImage[i]);
+        // console.log("Name Box %s is %s", i,_name[i] );
+        // console.log("Amount Box %s is %s", i,_quantity[i] );
+        //  console.log("URI Box %s is %s", i,_uriImage[i] );
         emit createBox(_name[i],_quantity[i],_uriImage[i]);
         }
         
@@ -65,6 +64,7 @@ interface RanDomVF2 {
     function addQuantityBox(string memory _nameBox,uint _amount ) external onlyOwner {
         require(_amount > 0 );
         boxListByID[_nameBox].quantity += _amount;
+        console.log("khanhdz");
     }
     function checkAmount(uint _sum, uint[] memory _amountBoxID ) pure private returns(bool) {
         uint sum = 0;
@@ -76,10 +76,10 @@ interface RanDomVF2 {
         }
         return false;
         }
-    RanDomVF2 random;
+    RanDomNumber random;
 
     function setRanDomContractAddress (address _ckAddress) external onlyOwner {
-        random = RanDomVF2(_ckAddress);
+        random = RanDomNumber(_ckAddress);
     }
 
    function createEvent(
@@ -92,19 +92,23 @@ interface RanDomVF2 {
         uint256 _startTime,
         uint256 _endTime,
         uint256 _maxBuy,
-        uint256 _startID
+        uint256 _startID,
+        uint256 _timeOpenBox
     ) external onlyOwner {
-        require(_nameBox.length == _amountBoxID.length );
-        require (checkAmount(_totalSupply,_amountBoxID));
+        require(_nameBox.length == _amountBoxID.length ,"Invalid");
+        require (checkAmount(_totalSupply,_amountBoxID), "Invalid");
         require(_totalSupply > 0, "Invalid Supply");
         require(_startTime < _endTime, "Invalid time");
         require(_maxBuy > 0, "Need set max buy");
         require(_nameBox.length > 0 );
             for(uint i=0;i <_nameBox.length; i++){
                 boxesByEvent[_eventID][_nameBox[i]] = boxListByID[_nameBox[i]];
+                //console.log(boxesByEvent[_eventID][_nameBox[i]]);
             }
-        eventRandom[_eventID] = random.ranDomm();
-        eventByID[_eventID] = EventInfo(_totalSupply, _nameBox, _amountBoxID, 0, _price, _currency, _startTime, _endTime, _maxBuy, _startID);
+        random.getEventRandomNumber(_eventID);
+        //console.log(random.getEventRandomNumber(_eventID));
+        eventByID[_eventID] = EventInfo(_totalSupply, _nameBox, _amountBoxID, 0, _price, _currency, _startTime, _endTime, _maxBuy, _startID,_timeOpenBox);
+        //console.log(eventByID[_eventID]);
         emit EventCreated(
             _totalSupply,
             _nameBox,
@@ -146,7 +150,6 @@ interface RanDomVF2 {
         for (uint i = 0; i < _amount; i++) {
             uint256 boxID = eventInfo.boxCount + eventInfo.startID + 1;
             _safeMint(msg.sender, boxID);
-            allBoxToAddress[msg.sender].push(boxID);
             boxByEvent[boxID] = _eventID;
             userBought[_eventID][msg.sender] += 1;
             eventInfo.boxCount += 1;
@@ -162,27 +165,42 @@ interface RanDomVF2 {
         open = OpenBoxInterface(_ckAddress);
     }
 
-    function openBox (uint[] memory boxID ) external {
-        for(uint i =0; i < boxID.length;i++){
-        require(ownerOf(boxID[i]) == msg.sender );
-        EventInfo memory eventInfo =  eventByID[boxByEvent[boxID[i]]];
-        uint rand = eventRandom[boxByEvent[boxID[i]]];
-        uint256 nftId = (boxID[i] + rand) % eventInfo.totalSupply + eventInfo.startID;
+    // function openBox (uint[] memory boxID ) external {
+    //     for(uint i =0; i < boxID.length;i++){
+    //     require(ownerOf(boxID[i]) == msg.sender );
+    //     EventInfo memory eventInfo =  eventByID[boxByEvent[boxID[i]]];
+    //     uint rand = eventRandom[boxByEvent[boxID[i]]];
+    //     uint256 nftId = (boxID[i] + rand) % eventInfo.totalSupply + eventInfo.startID;
+    //     open.mintNFT(msg.sender,nftId);
+    //     boxOpened[msg.sender] += 1;
+    //    _burn(boxID[i]);
+    // }
+    // }
+    function openBox(uint256 _boxId,uint256 _eventID) public {
+        require(ownerOf(_boxId) == msg.sender );
+        require(boxByEvent[_boxId] == _eventID );
+        EventInfo memory eventInfo =  eventByID[boxByEvent[_boxId]];
+        uint rand = eventRandom[boxByEvent[_boxId]];
+        uint256 nftId = (_boxId + rand) % eventInfo.totalSupply + eventInfo.startID;
         open.mintNFT(msg.sender,nftId);
         boxOpened[msg.sender] += 1;
-       _burn(boxID[i]);
-    }
+       _burn(_boxId);
     }
 
-    function openAllBox() external {
-        for(uint i = 0; i < allBoxToAddress[msg.sender].length;i++){
-            require(ownerOf(allBoxToAddress[msg.sender][i]) == msg.sender );
-            EventInfo memory eventInfo =  eventByID[boxByEvent[allBoxToAddress[msg.sender][i]]];
-            uint rand = eventRandom[boxByEvent[allBoxToAddress[msg.sender][i]]];
-            uint256 nftId = (allBoxToAddress[msg.sender][i] + rand) % eventInfo.totalSupply + eventInfo.startID;
-            open.mintNFT(msg.sender, nftId);
-            boxOpened[msg.sender] += 1;
-            _burn(allBoxToAddress[msg.sender][i]);
+
+    function openAllBox(uint256 _eventID) public {
+        uint256 userBox = balanceOf(msg.sender);
+        require(userBox > 0, "User not owner of any box");
+        for (uint256 index = 0; index < userBox; index++) {
+            uint256 currentBalance = balanceOf(msg.sender);
+            if (currentBalance == 0) {
+                continue;
+            }
+            uint256 boxId = tokenOfOwnerByIndex(msg.sender, currentBalance - 1);
+            if (boxByEvent[boxId] == _eventID) {
+                openBox(boxId, _eventID);
+            }
         }
     }
-}
+    
+ }

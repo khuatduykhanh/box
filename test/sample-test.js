@@ -1,19 +1,44 @@
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
+let nameBox = ["xanh","do","vang"];
+let amountBox = [1000,1000,1000];
+let urlBox = ["abc","abcd","abcdef"];
+let owner, addr1;
+describe("Box", function () {
 
-describe("Greeter", function () {
-  it("Should return the new greeting once it's changed", async function () {
-    const Greeter = await ethers.getContractFactory("Greeter");
-    const greeter = await Greeter.deploy("Hello, world!");
-    await greeter.deployed();
+  beforeEach(async () => {
+    [owner, addr1, _] = await ethers.getSigners();
+    const Box = await ethers.getContractFactory("Box");
+    contract = await Box.deploy();
+  });
 
-    expect(await greeter.greet()).to.equal("Hello, world!");
+  describe("createBox", () => {
+    it("test function createBoxList ", async function () {
+      await contract.deployed();
 
-    const setGreetingTx = await greeter.setGreeting("Hola, mundo!");
+      const createBox = await contract.createBoxList(nameBox,amountBox,urlBox);
+      
+      expect(createBox).to.be.not.undefined;
+    });
+  });
+  describe("createEvent", () => {
+    it("test function createEvent ", async function () {
+      await contract.deployed();
 
-    // wait until the transaction is mined
-    await setGreetingTx.wait();
+      const createEvent = await contract.connect(owner).createEvent(
+        1,
+        ["xanh","vang"],
+        [100,100],
+        200,
+        10000000,
+        "0x0000000000000000000000000000000000000000",
+        1645000000,
+        1648000000,
+        10,
+        1,
+        1646000000);
 
-    expect(await greeter.greet()).to.equal("Hola, mundo!");
+      expect(createEvent).to.be.not.undefined;
+    });
   });
 });

@@ -1,86 +1,66 @@
-// SPDX-License-Identifier: MIT
-// An example of a consumer contract that relies on a subscription for funding.
+//SPDX-License-Identifier: Unlicense
 pragma solidity ^0.8.7;
 
-import "@chainlink/contracts/src/v0.8/interfaces/LinkTokenInterface.sol";
-import "@chainlink/contracts/src/v0.8/interfaces/VRFCoordinatorV2Interface.sol";
-import "@chainlink/contracts/src/v0.8/VRFConsumerBaseV2.sol";
+import "@chainlink/contracts/src/v0.8/VRFConsumerBase.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
 
+/**
+ * THIS IS AN EXAMPLE CONTRACT WHICH USES HARDCODED VALUES FOR CLARITY.
+ * PLEASE DO NOT USE THIS CODE IN PRODUCTION.
+ */
 
-contract VRFv2Consumer is VRFConsumerBaseV2, AccessControl {
-  VRFCoordinatorV2Interface COORDINATOR;
-  LinkTokenInterface LINKTOKEN;
-  bytes32 public constant RANDOM_ROLE = keccak256("RANDOM_ROLE");
-  // Your subscription ID.
-  uint64 s_subscriptionId;
-
-  // Rinkeby coordinator. For other networks,
-  // see https://docs.chain.link/docs/vrf-contracts/#configurations
-  address vrfCoordinator = 0x6A2AAd07396B36Fe02a22b33cf443582f682c82f;
-
-  // Rinkeby LINK token contract. For other networks,
-  // see https://docs.chain.link/docs/vrf-contracts/#configurations
-  address link = 0x84b9B910527Ad5C03A9Ca831909E21e236EA7b06;
-
-  // The gas lane to use, which specifies the maximum gas price to bump to.
-  // For a list of available gas lanes on each network,
-  // see https://docs.chain.link/docs/vrf-contracts/#configurations
-  bytes32 keyHash = 0xd4bb89654db74673a187bd804519e65e3f71a52bc55f11da7601a13dcf505314;
-
-  // Depends on the number of requested values that you want sent to the
-  // fulfillRandomWords() function. Storing each word costs about 20,000 gas,
-  // so 100,000 is a safe default for this example contract. Test and adjust
-  // this limit based on the network that you select, the size of the request,
-  // and the processing of the callback request in the fulfillRandomWords()
-  // function.
-  uint32 callbackGasLimit = 100000;
-
-  // The default is 3, but you can set this higher.
-  uint16 requestConfirmations = 3;
-
-  // For this example, retrieve 2 random values in one request.
-  // Cannot exceed VRFCoordinatorV2.MAX_NUM_WORDS.
-  uint32 numWords =  2;
-
-  uint256[] public s_randomWords;
-  uint256 public s_requestId;
-  address s_owner;
-
-  constructor(uint64 subscriptionId, address addressBoxContract) VRFConsumerBaseV2(vrfCoordinator) {
-    COORDINATOR = VRFCoordinatorV2Interface(vrfCoordinator);
-    LINKTOKEN = LinkTokenInterface(link);
-    s_owner = msg.sender;
-    s_subscriptionId = subscriptionId;
-    _grantRole(RANDOM_ROLE, addressBoxContract);
-  }
-
-  // Assumes the subscription is funded sufficiently.
-   // Assumes the subscription is funded sufficiently.
-  function requestRandomWords() public  {
-    // Will revert if subscription is not set and funded.
-    s_requestId = COORDINATOR.requestRandomWords(
-      keyHash,
-      s_subscriptionId,
-      requestConfirmations,
-      callbackGasLimit,
-      numWords
-    );
-  }
-
-  function fulfillRandomWords(
-    uint256, /* requestId */
-    uint256[] memory randomWords
-  ) internal override {
-    s_randomWords = randomWords;
-  }
-  function ranDomm () external returns(uint256) {
-    require(hasRole(RANDOM_ROLE, msg.sender));
-    requestRandomWords();
-    return s_randomWords[0];
-  }
-
-
+/**
+ * Request testnet LINK and ETH here: https://faucets.chain.link/
+ * Find information on LINK Token Contracts and get the latest ETH and LINK faucets here: https://docs.chain.link/docs/link-token-contracts/
+ */
+ 
+interface IEpicWarBox {
+    function setRandomNumber(uint eventId, uint ranDom) external;
 }
 
+contract RandomNumberConsumer is VRFConsumerBase, AccessControl{
+    
+    bytes32 internal keyHash;
+    uint256 internal fee;
+    
+    uint256 public randomResult;
+    mapping (bytes32 => uint256 ) reqToEvent;
+    address boxContract;
+    bytes32 public constant RANDOM_ROLE = keccak256("RANDOM_ROLE");
+    event RequestRandomNumber(bytes32 _requestId,uint256 _eventId);
+    event ReceiveRandomNumber(bytes32 _requestId,uint256 _eventId,uint256 _randomness);
+    
+    /**
+     * Constructor inherits VRFConsumerBase
+     * 
+     * Network: Kovan
+     * Chainlink VRF Coordinator address: 0xdD3782915140c8f3b190B5D67eAc6dc5760C46E9
+     * LINK token address:                0xa36085F69e2889c224210F603D836748e7dC0088
+     * Key Hash: 0x6c3699283bda56ad74f6b855546325b68d482e983852a7a82979cc4807b641f4
+     */
+    constructor(address _boxContract) 
+        VRFConsumerBase(
+            0xa555fC018435bef5A13C6c6870a9d4C11DEC329C, // VRF Coordinator
+            0x84b9B910527Ad5C03A9Ca831909E21e236EA7b06  // LINK Token
+        )
+    {
+        keyHash = 0xcaf3c3727e033261d383b315559476f48034c13b18f8cafed4d871abe5049186;
+        fee = 0.1 * 10 ** 18; // 0.1 LINK (Varies by network)
+        boxContract = _boxContract;
+        _grantRole(RANDOM_ROLE, _boxContract);
+    }
 
+    function getEventRandomNumber(uint256 _eventId) external onlyRole(RANDOM_ROLE) {
+        require(hasRole(RANDOM_ROLE, msg.sender));
+        require(LINK.balanceOf(address(this)) >= fee, "Contract not enough LINK to pay fee");
+        bytes32 requestId = requestRandomness(keyHash, fee);
+        reqToEvent[requestId] = _eventId;
+        emit RequestRandomNumber(requestId, _eventId);
+    }
+
+    function fulfillRandomness(bytes32 requestId, uint256 randomness) internal override {
+        uint256 eventId = reqToEvent[requestId];
+        IEpicWarBox(boxContract).setRandomNumber(eventId, randomness);
+        emit ReceiveRandomNumber(requestId, eventId, randomness);
+    }
+}
