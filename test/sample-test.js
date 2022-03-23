@@ -6,7 +6,7 @@ let urlBox = ["abc","abcd","abcdef"];
 let owner, addr1;
 describe("Box", function () {
 
-  before(async () => {
+  beforeEach(async () => {
     [owner, addr1, _] = await ethers.getSigners();
     const Box = await ethers.getContractFactory("Box");
     contract = await Box.deploy();
