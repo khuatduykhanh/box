@@ -21,23 +21,22 @@ async function main() {
 
   console.log("Box deployed to:", box.address);
 
-  const OpenBox = await hre.ethers.getContractFactory("OpenBox");
-  const openBox = await OpenBox.deploy(0x5FbDB2315678afecb367f032d93F642f64180aa3);
+  // const Nft = await hre.ethers.getContractFactory("OpenBox");
+  // const nft = await Nft.deploy(box.address);
 
-  await openBox.deployed();
+  // await nft.deployed();
 
-  console.log("OpenBox deployed to:", openBox.address);
+  // console.log("NFT deployed to:", nft.address);
 
-  const RanDom = await hre.ethers.getContractFactory("RandomNumberConsumer");
-  const ranDom = await RanDom.deploy(0x5FbDB2315678afecb367f032d93F642f64180aa3);
+  // const RanDom = await hre.ethers.getContractFactory("RandomNumberConsumer");
+  // const random = await RanDom.deploy(box.address);
 
-  await box.deployed();
+  // await random.deployed();
 
-  console.log("Box deployed to:", box.address);  
-}
-
+  // console.log("RanDom deployed to:", random.address);
 // We recommend this pattern to be able to use async/await everywhere
 // and properly handle errors.
+}
 main().catch((error) => {
   console.error(error);
   process.exitCode = 1;

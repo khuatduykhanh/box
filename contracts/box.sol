@@ -61,10 +61,11 @@ contract Box is ERC721Enumerable, Ownable{
         }
         
     } 
-    function addQuantityBox(string memory _nameBox,uint _amount ) external onlyOwner {
+    function addQuantityBox(string memory _nameBox,uint _amount ) external  onlyOwner returns (uint256) {
         require(_amount > 0 );
         boxListByID[_nameBox].quantity += _amount;
-        console.log("khanhdz");
+        console.log("sl Box %s",boxListByID[_nameBox].quantity);
+        return boxListByID[_nameBox].quantity;
     }
     function checkAmount(uint _sum, uint[] memory _amountBoxID ) pure private returns(bool) {
         uint sum = 0;
@@ -76,10 +77,9 @@ contract Box is ERC721Enumerable, Ownable{
         }
         return false;
         }
-    RanDomNumber random;
 
-    function setRanDomContractAddress (address _ckAddress) external onlyOwner {
-        random = RanDomNumber(_ckAddress);
+    function setRanDomContractAddress (address _ckAddress,uint _eventID) external onlyOwner {
+        RanDomNumber(_ckAddress).getEventRandomNumber(_eventID);
     }
 
    function createEvent(
@@ -105,7 +105,6 @@ contract Box is ERC721Enumerable, Ownable{
                 boxesByEvent[_eventID][_nameBox[i]] = boxListByID[_nameBox[i]];
                 //console.log(boxesByEvent[_eventID][_nameBox[i]]);
             }
-        random.getEventRandomNumber(_eventID);
         //console.log(random.getEventRandomNumber(_eventID));
         eventByID[_eventID] = EventInfo(_totalSupply, _nameBox, _amountBoxID, 0, _price, _currency, _startTime, _endTime, _maxBuy, _startID,_timeOpenBox);
         //console.log(eventByID[_eventID]);
