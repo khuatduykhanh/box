@@ -44,11 +44,12 @@ contract Box is ERC721Enumerable, Ownable{
     event EventCreated(uint _totalSupply, string[] nameBoxSale, uint[]numberBoxSale, uint _price, address _currency,uint _startTime,uint _endTime,uint _maxBuy,uint startID);
     event BoxCreated(uint _boxID,address addressUser,uint _eventID,string _uriImage, string _name,uint _boxPrice, address _token);
     event createBox( string _nameBox,uint _quantity,string _uriImage);
+    event updateAmountBox(uint256 _amount);
     constructor() ERC721("Box", "BOX") {}
     
-    function setRandomNumber(uint eventId, uint ranDom) external {
-        eventRandom[eventId] = ranDom ;
-    }
+    // function setRandomNumber(uint eventId, uint ranDom) external {
+    //     eventRandom[eventId] = ranDom ;
+    // 
 
     function createBoxList (string[] memory _name,uint[] memory _quantity,string[] memory _uriImage) external onlyOwner {
         require(_name.length == _quantity.length && _name.length == _uriImage.length);
@@ -61,11 +62,11 @@ contract Box is ERC721Enumerable, Ownable{
         }
         
     } 
-    function addQuantityBox(string memory _nameBox,uint _amount ) external  onlyOwner returns (uint256) {
+    function addQuantityBox(string memory _nameBox,uint _amount ) external onlyOwner {
         require(_amount > 0 );
         boxListByID[_nameBox].quantity += _amount;
         console.log("sl Box %s",boxListByID[_nameBox].quantity);
-        return boxListByID[_nameBox].quantity;
+        emit updateAmountBox(boxListByID[_nameBox].quantity);
     }
     function checkAmount(uint _sum, uint[] memory _amountBoxID ) pure private returns(bool) {
         uint sum = 0;
@@ -106,6 +107,7 @@ contract Box is ERC721Enumerable, Ownable{
                 //console.log(boxesByEvent[_eventID][_nameBox[i]]);
             }
         //console.log(random.getEventRandomNumber(_eventID));
+        
         eventByID[_eventID] = EventInfo(_totalSupply, _nameBox, _amountBoxID, 0, _price, _currency, _startTime, _endTime, _maxBuy, _startID,_timeOpenBox);
         //console.log(eventByID[_eventID]);
         emit EventCreated(
@@ -181,7 +183,7 @@ contract Box is ERC721Enumerable, Ownable{
         EventInfo memory eventInfo =  eventByID[boxByEvent[_boxId]];
         uint rand = eventRandom[boxByEvent[_boxId]];
         uint256 nftId = (_boxId + rand) % eventInfo.totalSupply + eventInfo.startID;
-        open.mintNFT(msg.sender,nftId);
+        open.mintNFT(msg.sender, nftId);
         boxOpened[msg.sender] += 1;
        _burn(_boxId);
     }

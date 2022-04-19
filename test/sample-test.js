@@ -1,5 +1,6 @@
 const { expect,assert } = require("chai");
 const {upgrades, ethers } = require("hardhat");
+const { utils } = ethers;
 let nameBox = ["xanh","do","vang"];
 let amountBox = [1000,1000,1000];
 let urlBox = ["abc","abcd","abcdef"];
@@ -33,9 +34,9 @@ describe("Box", function () {
     });
     it("test function addQuantityBox", async function(){
       await contract.deployed();
-      const addQuantityBox = await contract.addQuantityBox("xanh",1000);
-      
-      expect(addQuantityBox, 'topic [answer]').to.equal(2000);
+      await expect(contract.addQuantityBox("xanh", 1000))
+      .to.emit(contract, 'updateAmountBox')
+      .withArgs(2000);
 
     });
   });
@@ -51,26 +52,45 @@ describe("Box", function () {
         ["xanh","vang"],
         [100,100],
         200,
-        10000000,
+        utils.parseEther("0.1"),
         "0x0000000000000000000000000000000000000000",
         1645000000,
-        1650000000,
+        1660000000,
         10,
-        1,
+        0,
         1646000000);
       expect(createEvent).to.be.not.undefined;
     });
   });
-  // describe("buyBox", () => {
-  //   it("test function muabox ", async function () {
-  //     await contract.deployed();
-  //     const createBox = await contract.createBoxList(nameBox,amountBox,urlBox);
-  //     expect(
-  //       (nameBox.length === amountBox.length) === urlBox.length,
-  //       "Invalid Supply"
-  //     );
-     
-  //     expect(createBox).to.be.not.undefined;
-  //   });
-  // });
+  describe("buyBox", () => {
+    it("test function muabox addr1 ", async function () {
+      await contract.deployed();
+      const buybox = await contract.connect(addr1).buyBox(1,5,"xanh","0x0000000000000000000000000000000000000000",{ value: utils.parseEther("0.5") });
+      
+      expect(buybox).to.be.not.undefined;
+      expect( await contract.balanceOf(addr1.address)).to.equal(5);
+      
+     for (let index = 1; index <= 5; index++) {
+      expect( await contract.ownerOf(index)).to.equal(addr1.address);  
+     }
+    });
+    it("test function muabox addr2 ", async function () {
+      await contract.deployed();
+      const buybox = await contract.connect(addr2).buyBox(1,3,"xanh","0x0000000000000000000000000000000000000000",{ value: utils.parseEther("0.3") });
+      
+      expect(buybox).to.be.not.undefined;
+      expect( await contract.balanceOf(addr2.address)).to.equal(3);
+      
+     for (let index = 6; index <= 8; index++) {
+      expect( await contract.ownerOf(index)).to.equal(addr2.address);  
+     }
+    });
+  });
+  describe("OpenBox", () => {
+    it("test function OpenBox ", async function () {
+      await contract.deployed();
+      // const openbox = await contract.connect(addr1).openBox(1,1);
+      
+    });
+  });
 });
