@@ -6,11 +6,10 @@ import "@openzeppelin/contracts/access/AccessControl.sol";
 
 contract OpenBox is ERC721, AccessControl {
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
-
     constructor(address addressBox ) ERC721("Battle", "GAN") {
         _grantRole(MINTER_ROLE, addressBox);
     }
-
+   
     function mintNFT (address to, uint256 nftID) public  {
         require(hasRole(MINTER_ROLE, msg.sender));
         _safeMint(to, nftID);

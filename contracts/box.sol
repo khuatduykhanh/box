@@ -7,7 +7,14 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 interface OpenBoxInterface {  
-   function mintNFT (address _to, uint256 _nftID) external ;
+    function mintNFT (address _to, uint256 _nftID) external ;
+    function balanceOf(address owner) external returns (uint256);
+    function ownerOf(uint256 tokenId) external returns (address);
+    function safeTransferFrom(
+        address from,
+        address to,
+        uint256 tokenId
+    ) external ;
 }
 interface RanDomNumber {
     function getEventRandomNumber(uint256 _eventId) external;
@@ -32,9 +39,22 @@ contract Box is ERC721Enumerable, Ownable{
         uint256 bought;
         string uriImage;
     }
-   
+    // struct InforNFT {
+    //     string name;
+    //     uint256 level;
+    //     uint256 gen;
+
+    // }
+    // struct InforSaleNFT {
+    //     uint256 price;
+    //     uint256 startTime;
+    //     uint256 endTime;
+    // }
+    // mapping (uint256 => InforSaleNFT) saleNFTByID;
+    // mapping (uint256 => InforNFT) NFTByID;
+    mapping (uint256 => uint256 ) internal luckyNumber;
     address public fundWallet;
-    mapping (uint => uint) private eventRandom;
+    mapping (uint => uint) internal eventRandom;
     mapping (address => uint ) boxOpened;
     mapping (string => BoxList ) boxListByID;
     mapping (uint => mapping(string => BoxList)) boxesByEvent;
@@ -44,10 +64,21 @@ contract Box is ERC721Enumerable, Ownable{
     event EventCreated(uint _totalSupply, string[] nameBoxSale, uint[]numberBoxSale, uint _price, address _currency,uint _startTime,uint _endTime,uint _maxBuy,uint startID);
     event BoxCreated(uint _boxID,address addressUser,uint _eventID,string _uriImage, string _name,uint _boxPrice, address _token);
     event createBox( string _nameBox,uint _quantity,string _uriImage);
+    // event EventSaleNFT (uint256 _ID,uint256 _price, uint256 _startTime, uint256 _endTime);
     constructor() ERC721("Box", "BOX") {}
     
     function setRandomNumber(uint eventId, uint ranDom) external {
         eventRandom[eventId] = ranDom ;
+    }
+    uint256 randNonce = 0;
+    function randMod(uint _NftID) internal returns(uint) {
+        randNonce = randNonce++;
+        return uint(keccak256(abi.encodePacked(block.timestamp, msg.sender, randNonce,_NftID))) % 100000000;
+    }
+    uint256 randNonce1 = 0;
+    function randMod1(uint _to,uint _from) internal returns(uint) {
+        randNonce1 = randNonce1++;
+        return _from - (uint(keccak256(abi.encodePacked(block.timestamp, msg.sender, randNonce1,_to,_from))) % _to);
     }
 
     function createBoxList (string[] memory _name,uint[] memory _quantity,string[] memory _uriImage) external onlyOwner {
@@ -101,10 +132,11 @@ contract Box is ERC721Enumerable, Ownable{
         require(_startTime < _endTime, "Invalid time");
         require(_maxBuy > 0, "Need set max buy");
         require(_nameBox.length > 0 );
-            for(uint i=0;i <_nameBox.length; i++){
-                boxesByEvent[_eventID][_nameBox[i]] = boxListByID[_nameBox[i]];
-                //console.log(boxesByEvent[_eventID][_nameBox[i]]);
-            }
+        luckyNumber[_eventID] = randMod1(_startID+1,_totalSupply);
+        for(uint i=0;i <_nameBox.length; i++){
+            boxesByEvent[_eventID][_nameBox[i]] = boxListByID[_nameBox[i]];
+            //console.log(boxesByEvent[_eventID][_nameBox[i]]);
+        }
         random.getEventRandomNumber(_eventID);
         //console.log(random.getEventRandomNumber(_eventID));
         eventByID[_eventID] = EventInfo(_totalSupply, _nameBox, _amountBoxID, 0, _price, _currency, _startTime, _endTime, _maxBuy, _startID,_timeOpenBox);
@@ -176,31 +208,35 @@ contract Box is ERC721Enumerable, Ownable{
     //    _burn(boxID[i]);
     // }
     // }
-    function openBox(uint256 _boxId,uint256 _eventID) public {
-        require(ownerOf(_boxId) == msg.sender );
-        require(boxByEvent[_boxId] == _eventID );
-        EventInfo memory eventInfo =  eventByID[boxByEvent[_boxId]];
-        uint rand = eventRandom[boxByEvent[_boxId]];
-        uint256 nftId = (_boxId + rand) % eventInfo.totalSupply + eventInfo.startID;
-        open.mintNFT(msg.sender,nftId);
-        boxOpened[msg.sender] += 1;
-       _burn(_boxId);
-    }
+    // function openBox(uint256 _boxId,uint256 _eventID) public {
+    //     require(ownerOf(_boxId) == msg.sender );
+    //     require(boxByEvent[_boxId] == _eventID );
+    //     EventInfo memory eventInfo =  eventByID[boxByEvent[_boxId]];
+    //     uint rand = eventRandom[boxByEvent[_boxId]];
+    //     uint256 nftId = (_boxId + rand) % eventInfo.totalSupply + eventInfo.startID;
+    //     uint gens = randMod(nftId);
+    //     if(nftId == luckyNumber[_eventID]) {
+    //         NFTByID[nftId] = InforNFT('',5,gens);
+    //     }
+    //     NFTByID[nftId] = InforNFT('',1,gens);
+    //     open.mintNFT(msg.sender,nftId);
+    //     boxOpened[msg.sender] += 1;
+    //    _burn(_boxId);
+    // }
 
-
-    function openAllBox(uint256 _eventID) public {
-        uint256 userBox = balanceOf(msg.sender);
-        require(userBox > 0, "User not owner of any box");
-        for (uint256 index = 0; index < userBox; index++) {
-            uint256 currentBalance = balanceOf(msg.sender);
-            if (currentBalance == 0) {
-                continue;
-            }
-            uint256 boxId = tokenOfOwnerByIndex(msg.sender, currentBalance - 1);
-            if (boxByEvent[boxId] == _eventID) {
-                openBox(boxId, _eventID);
-            }
-        }
-    }
+    // function openAllBox(uint256 _eventID) public {
+    //     uint256 userBox = balanceOf(msg.sender);
+    //     require(userBox > 0, "User not owner of any box");
+    //     for (uint256 index = 0; index < userBox; index++) {
+    //         uint256 currentBalance = balanceOf(msg.sender);
+    //         if (currentBalance == 0) {
+    //             continue;
+    //         }
+    //         uint256 boxId = tokenOfOwnerByIndex(msg.sender, currentBalance - 1);
+    //         if (boxByEvent[boxId] == _eventID) {
+    //             openBox(boxId, _eventID);
+    //         }
+    //     }
+    // }
     
  }
