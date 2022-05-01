@@ -18,6 +18,7 @@ contract NFT is  Box {
     mapping (uint256 => InforSaleNFT) saleNFTByID;
     mapping (uint256 => InforNFT) NFTByID;
     event EventSaleNFT (uint256 _ID,uint256 _price, uint256 _startTime, uint256 _endTime);
+    event EventBuyNFT (address _from,address _to,uint256 _nftID,uint256 _price);
 
     
     function openBox(uint256 _boxId,uint256 _eventID) public {
@@ -72,6 +73,25 @@ contract NFT is  Box {
          IERC20(_token).transferFrom(msg.sender, _from, inforNFT.price);
 
        open.safeTransferFrom(_from,msg.sender,_NftID); 
-
+       emit EventBuyNFT(_from,msg.sender,_NftID,inforNFT.price);
+    }
+     
+    function levelUp (uint256 _NftID,address _token) public payable {
+        require(open.ownerOf(_NftID) == msg.sender);
+        InforNFT memory inforNft = NFTByID[_NftID];
+        if (_token == address(0)) {
+            require(10000000000000000 == msg.value, "invalid value");
+        }
+        _fowardFund(10000000000000000, _token);
+        inforNft.level++;
+    }
+    function setUpName (uint256 _NftID,address _token,string memory _nameNFT) public payable {
+        require(open.ownerOf(_NftID) == msg.sender);
+        InforNFT memory inforNft = NFTByID[_NftID];
+        if (_token == address(0)) {
+            require(100000000000000 == msg.value, "invalid value");
+        }
+        _fowardFund(100000000000000, _token);
+        inforNft.name = _nameNFT;
     }
 }

@@ -2,7 +2,7 @@ require("dotenv").config();
 
 require("@nomiclabs/hardhat-etherscan");
 require("@nomiclabs/hardhat-waffle");
-require('hardhat-contract-sizer');
+
 
 
 
@@ -24,7 +24,22 @@ task("accounts", "Prints the list of accounts", async (taskArgs, hre) => {
  * @type import('hardhat/config').HardhatUserConfig
  */
 module.exports = {
-  solidity: "0.8.7",
+  solidity: {
+    version:  "0.8.7",
+    settings: {
+      optimizer: {
+        enabled: true,
+        runs: 2000,
+        details: {
+          yul: true,
+          yulDetails: {
+            stackAllocation: true,
+            optimizerSteps: "dhfoDgvulfnTUtnIf"
+          }
+        }
+      }
+    },
+  },
   paths: {
     artifacts: "./src/artifacts",
   },
@@ -41,11 +56,5 @@ module.exports = {
   //     accounts: ["0xd67e3685dfe7d23ae09de01fac32da53c58ae72a3d4f1a55fb0ef99b58d81907"],
   //   },
     },
-    contractSizer: {
-      alphaSort: true,
-      disambiguatePaths: false,
-      runOnCompile: true,
-      strict: true,
-      only: [':ERC20$'],
-    }
+    
 };
