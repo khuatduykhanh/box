@@ -247,21 +247,22 @@ contract Box is ERC721Enumerable, Ownable{
         emit EventSaleNFT(_NftID,_price,_startTime,_endTime);
     }
 
-    function BuyNft (uint256 _NftID,address _from,address _token) public payable {
+    function BuyNft (uint256 _NftID,address _token) public payable {
         InforSaleNFT memory inforNFT = saleNFTByID[_NftID];
+        address from = open.ownerOf(_NftID);
         require(block.timestamp >= inforNFT.startTime, "Sale has not started");
         require(block.timestamp <= inforNFT.endTime, "Sale has ended");
         if (_token == address(0)) {
             require(inforNFT.price == msg.value, "invalid value");
         }
         if (_token == address(0)) { // native token (BNB)
-            (bool isSuccess,) = _from.call{value: inforNFT.price}("");
+            (bool isSuccess,) = from.call{value: inforNFT.price}("");
             require(isSuccess, "Transfer failed: gas error");
         }
-         IERC20(_token).transferFrom(msg.sender, _from, inforNFT.price);
+         IERC20(_token).transferFrom(msg.sender,from, inforNFT.price);
 
-       open.safeTransferFrom(_from,msg.sender,_NftID); 
-       emit EventBuyNFT(_from,msg.sender,_NftID,inforNFT.price);
+       open.safeTransferFrom(from,msg.sender,_NftID); 
+       emit EventBuyNFT(from,msg.sender,_NftID,inforNFT.price);
     }
      
     function levelUp (uint256 _NftID,address _token) public payable {
